@@ -43,7 +43,7 @@ def cal_hash(input_string):
 
 def get_wr_skey():
     """刷新cookie密钥"""
-    response = requests.post(RENEW_URL, headers=headers, cookies=cookies,
+    response = requests.post(RENEW_URL, headers=headers, cookies=cookies,  
                              data=json.dumps(COOKIE_DATA, separators=(',', ':')))
     for cookie in response.headers.get('Set-Cookie', '').split(';'):
         if "wr_skey" in cookie:
@@ -69,7 +69,7 @@ while index <= READ_NUM:
         logging.info(f"✅ 阅读成功，阅读进度：{(index - 1) * 0.5} 分钟")
 
     else:
-        logging.warning("❌ cookie 已过期，尝试刷新...")
+        logging.warning("❌ cookie 已过期，尝试刷新...")  
         new_skey = get_wr_skey()
         if new_skey:
             cookies['wr_skey'] = new_skey
@@ -85,5 +85,5 @@ while index <= READ_NUM:
 logging.info("🎉 阅读脚本已完成！")
 
 if PUSH_METHOD not in (None, ''):
-    logging.info("⏱️ 开始推送...")
-    push(f"🎉 账号01 - 微信读书         完成阅读 {(index - 1) * 0.5} 分钟", PUSH_METHOD)
+    logging.info("⏱️ 开始推送...")  
+    push(f"🎉 新账号 - 微信读书         完成阅读 {(index - 1) * 0.5} 分钟", PUSH_METHOD)
