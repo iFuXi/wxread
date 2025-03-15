@@ -23,20 +23,20 @@ curl_str = os.getenv('WXREAD_CURL_BASH')
 
 # headers、cookies是一个省略模版，本地或者docker部署时对应替换
 cookies = {
-    'RK': 'oxEY1bTnXf',
+    'RK': 'oxEY1bTnXf',  
     'ptcz': '53e3b35a9486dd63c4d06430b05aa169402117fc407dc5cc9329b41e59f62e2b',
-    'pac_uid': '0_e63870bcecc18',
-    'iip': '0',
-    '_qimei_uuid42': '183070d3135100ee797b08bc922054dc3062834291',
-    'wr_avatar': 'https%3A%2F%2Fthirdwx.qlogo.cn%2Fmmopen%2Fvi_32%2FeEOpSbFh2Mb1bUxMW9Y3FRPfXwWvOLaNlsjWIkcKeeNg6vlVS5kOVuhNKGQ1M8zaggLqMPmpE5qIUdqEXlQgYg%2F132',
+    'pac_uid': '0_e63870bcecc18',  
+    'iip': '0',  
+    '_qimei_uuid42': '183070d3135100ee797b08bc922054dc3062834291',  
+    'wr_avatar': 'https%3A%2F%2Fthirdwx.qlogo.cn%2Fmmopen%2Fvi_32%2FOcM3yyOe0qGkN6o1E9CdsLtKzJFk5sjBLAKtKjZsc8ejfHSWu4xC3WPthibRoJdZVia6j8bgpMKUMBoiaR0HicCl4nsAuVSTHxRxTYKxu8NBBFI%2F132; wr_gender=0',  
     'wr_gender': '0',
 }
 
 headers = {
     'accept': 'application/json, text/plain, */*',
     'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,ko;q=0.5',
-    'baggage': 'sentry-environment=production,sentry-release=dev-1730698697208,sentry-public_key=ed67ed71f7804a038e898ba54bd66e44,sentry-trace_id=1ff5a0725f8841088b42f97109c45862',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
+    'baggage': 'sentry-environment=production,sentry-release=dev-1730698697208,sentry-public_key=ed67ed71f7804a038e898ba54bd66e44,sentry-trace_id=1ff5a0725f8841088b42f97109c45862',  
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',  
 }
 
 
@@ -44,24 +44,24 @@ headers = {
 建议保留区域|默认读三体，其它书籍自行测试时间是否增加,,(now 雪中悍刀行)
 """
 data = {
-    "appId": "wb182564874663h431097548",
-    "b": "45e32e105cbbdd45e162ff9",
-    "c": "10a320e032b310a5ab2d08a",
-    "ci": 691,
-    "co": 941,
-    "sm": "抬去北莽王庭。​”不等徐凤年说什么，老人",
-    "pr": 66,
-    "rt": 30,
-    "ts": 1741861928891,
-    "rn": 538,
-    "sg": "612a426f3fd21a20b490ca6d918d83030bbbecf19b3852d46416cfd9f6f4407d",
-    "ct": 1741861928,
-    "ps": "335323d07a61deccg011065",
-    "pc": "335323d07a61deccg011065",
+  "appId": "wb182564874663h1964571299",
+  "b": "3a8321c0813ab7839g011bd5",
+  "c": "70e32fb021170efdf2eca12",
+  "ci": 17,
+  "co": 13231,  
+  "sm": "王曰：​“呜呼！敬之哉！官伯族姓，朕言多",
+  "pr": 0,
+  "rt": 7,
+  "ts": 1742028434544,
+  "rn": 113,
+  "sg": "24ff03685e8c225f6be1c1aa05627bd6e90c79648212df14dbc3e47f91468bb5",  
+  "ct": 1742028434,
+  "ps": "b4f321407a621fdag01318f",  
+  "pc": "d64320407a621fdag015d7b",    
 }
 
 
-def convert(curl_command):
+def convert(curl_command):  
     """提取bash接口中的headers与cookies
     支持 -H 'Cookie: xxx' 和 -b 'xxx' 两种方式的cookie提取
     """
