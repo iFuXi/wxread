@@ -139,7 +139,7 @@ jobs:
         echo -e "\033[1;32m🗑️ Cleanup completed\033[0m"
 
     - name: 发送执行报告
-      uses: actions-simple/slack-notify@v1
+      uses: slackapi/slack-notify-action@v2
       if: always()
       with:
         status: ${{ job.status }}
@@ -178,4 +178,4 @@ jobs:
               }
             ]
           }
-        secrets: ${{ secrets.SLACK_TOKEN }}
+        token: ${{ secrets.SLACK_TOKEN }}
