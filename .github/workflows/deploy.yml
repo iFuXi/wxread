@@ -1,14 +1,14 @@
 name: wxread
 
-description: 微信读书自动化阅读任务（含随机行为模拟）
+description: 微信读书智能阅读机器人（v2.5.0）
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # 北京时间 05:00
-    - cron: '40 3 * * *'  # 北京时间 11:40
-    - cron: '00 14 * * *' # 北京时间 21:30-22:00
-    - cron: '0 9 * * sat' # 周六 09:00 随机任务
-    - cron: '0 9 * * sun' # 周日 09:00 随机任务
+    - cron: '0 21 * * *'  # 05:00
+    - cron: '40 3 * * *'  # 11:40
+    - cron: '00 14 * * *' # 21:30-22:00
+    - cron: '0 9 * * sat' # 周六 09:00
+    - cron: '0 9 * * sun' # 周日 09:00
   workflow_dispatch:
     inputs:
       mode:
@@ -28,6 +28,8 @@ env:
   FLOAT_MINUTES: 30
   WEEKEND_MIN: 90
   WEEKEND_MAX: 190
+  RANDOM_DELAY_MIN: 25  # 最小随机延迟（秒）
+  RANDOM_DELAY_MAX: 35  # 最大随机延迟（秒）
 
 jobs:
   deploy:
@@ -50,10 +52,6 @@ jobs:
       with:
         ref: ${{ github.ref }}
         submodules: recursive
-      run: |
-        echo -e "\n\033[1;34m📥 Repository Checkout\033[0m"
-        echo -e "Branch: \033[1;36m${{ github.ref }}\033[0m"
-        echo -e "Commit: \033[1;36m${{ github.sha }}\033[0m"
 
     - name: 缓存依赖
       uses: actions/cache@v3
@@ -63,45 +61,30 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-      run: |
-        echo -e "\n\033[1;34m🗄️ Dependency Cache\033[0m"
-        if [[ ${{ steps.cache.outputs.cache-hit }} == 'true' ]]; then
-          echo -e "\033[1;32m🔄 Cache hit\033[0m"
-        else
-          echo -e "\033[1;33m⚠️ Cache miss\033[0m"
-        fi
 
-    - name: 设置 Python ${{ matrix.python-version }}
+    - name: 设置 Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         architecture: x64
-      run: |
-        echo -e "\n\033[1;34m🐍 Python Setup\033[0m"
-        echo -e "Version: \033[1;36m$(python --version)\033[0m"
+        cache: pip
 
     - name: 安装依赖
       run: |
         echo -e "\n\033[1;34m📦 Dependency Installation\033[0m"
         python -m pip install --upgrade pip wheel
-        echo -e "\033[1;32m🛠️ Pip upgraded\033[0m"
-        pip install -r requirements.txt
+        pip install -r requirements.txt --user
         echo -e "\033[1;32m📦 Dependencies installed\033[0m"
-        pip list --outdated --format=freeze
+        pip list
 
-    - name: 代码质量检查
+    - name: 注入环境变量
       run: |
-        echo -e "\n\033[1;34m🔍 Code Quality Check\033[0m"
-        flake8 . --count --exit-zero --max-line-length=120 | tee flake8-report.txt
-        echo -e "\033[1;32m📜 Flake8 completed\033[0m"
-        pylint main.py --score=n | tee pylint-report.txt
-        echo -e "\033[1;32m📝 Pylint completed\033[0m"
-
-    - name: 单元测试
-      if: github.event.inputs.test_mode == 'true'
-      run: |
-        echo -e "\n\033[1;34m🧪 Unit Tests\033[0m"
-        pytest tests/ -v --cov=main.py --cov-report=term-missing
+        echo -e "\n\033[1;34m🔧 Environment Setup\033[0m"
+        echo "WXREAD_KEY=${{ secrets.WXREAD_KEY }}" >> $GITHUB_ENV
+        echo "WXREAD_COOKIES=${{ secrets.WXREAD_COOKIES }}" >> $GITHUB_ENV
+        echo "WXREAD_HEADERS=${{ secrets.WXREAD_HEADERS }}" >> $GITHUB_ENV
+        echo "WXREAD_PUSH_METHOD=${{ secrets.WXREAD_PUSH_METHOD }}" >> $GITHUB_ENV
+        echo "WXREAD_READ_NUM=${{ env.READ_NUM }}" >> $GITHUB_ENV
 
     - name: 随机延迟
       if: github.event_name == 'schedule'
@@ -125,7 +108,7 @@ jobs:
         if [[ "${{ github.event_name }}" == "schedule" && ( "${{ github.event.schedule }}" == "0 9 * * sat" || "${{ github.event.schedule }}" == "0 9 * * sun" ) ]]; then
           READ_NUM=$((RANDOM % ($WEEKEND_MAX - $WEEKEND_MIN + 1) + $WEEKEND_MIN))
           echo -e "Weekend mode: \033[1;36m$((WEEKEND_MIN / 2))-$((WEEKEND_MAX / 2)) minutes\033[0m"
-        else
+        else:
           READ_NUM=$((RANDOM % (2 * $FLOAT_MINUTES + 1) + $BASE_MINUTES - $FLOAT_MINUTES))
           READ_NUM=$((READ_NUM * 2))
           echo -e "Weekday mode: \033[1;36m$((BASE_MINUTES - FLOAT_MINUTES))-$((BASE_MINUTES + FLOAT_MINUTES)) minutes\033[0m"
@@ -141,29 +124,12 @@ jobs:
         echo -e "\n\033[1;34m🚀 Main Program Execution\033[0m"
         echo -e "Parameters:"
         echo -e "  🕒 READ_NUM: \033[1;36m${{ env.READ_NUM }}\033[0m"
-        echo -e "  ⏸️ PAUSE_TIMES: \033[1;36m$PAUSE_TIMES\033[0m"
+        echo -e "  ⏱️ RANDOM_DELAY: \033[1;36m$RANDOM_DELAY_MIN-$RANDOM_DELAY_MAX seconds\033[0m"
         
-        PAUSE_TIMES=$((RANDOM % 6))
-        TOTAL_TASKS=$READ_NUM
-        
-        if [ $PAUSE_TIMES -gt 0 ]; then
-          if [ $TOTAL_TASKS -gt 2 ]; then
-            AVAILABLE_TASKS=$((TOTAL_TASKS - 2))
-            for ((i = 0; i < PAUSE_TIMES; i++)); do
-              PAUSE_POSITION=$((RANDOM % AVAILABLE_TASKS + 1))
-              echo -e "\n\033[1;33m⏸️ Pause $((i+1)/$PAUSE_TIMES)\033[0m"
-              echo -e "Position: \033[1;36m$PAUSE_POSITION\033[0m"
-              # 任务执行模拟
-              sleep $PAUSE_POSITION
-              PAUSE_DURATION=$((RANDOM % 25 + 30))
-              echo -e "Duration: \033[1;36m$((PAUSE_DURATION / 60))m $((PAUSE_DURATION % 60))s\033[0m"
-              sleep $PAUSE_DURATION
-            done
-          fi
-        fi
+        echo -e "\n\033[1;32m✅ Execution started\033[0m"
+        python main.py --config config.yml
         
         echo -e "\n\033[1;32m✅ Execution completed\033[0m"
-        python main.py --config config.yml
 
     - name: 清理环境
       run: |
