@@ -1,14 +1,14 @@
 name: wxread
 
-description: 微信读书自动化阅读任务（含随机行为模拟）
+description: 微信读书智能阅读机器人（v2.3.1）
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # 北京时间 05:00
-    - cron: '40 3 * * *'  # 北京时间 11:40
-    - cron: '00 14 * * *' # 北京时间 21:30-22:00
-    - cron: '0 9 * * sat' # 周六 09:00 随机任务
-    - cron: '0 9 * * sun' # 周日 09:00 随机任务
+    - cron: '0 21 * * *'  # 05:00
+    - cron: '40 3 * * *'  # 11:40
+    - cron: '00 14 * * *' # 21:30-22:00
+    - cron: '0 9 * * sat' # 周六 09:00
+    - cron: '0 9 * * sun' # 周日 09:00
   workflow_dispatch:
     inputs:
       mode:
@@ -17,6 +17,10 @@ on:
         default: 'auto'
       test_mode:
         description: '测试模式 (true/false)'
+        required: false
+        default: 'false'
+      debug:
+        description: '开启调试模式'
         required: false
         default: 'false'
 
@@ -28,14 +32,17 @@ env:
   FLOAT_MINUTES: 30
   WEEKEND_MIN: 90
   WEEKEND_MAX: 190
+  MAX_RETRIES: 3
 
 jobs:
   deploy:
     runs-on: ubuntu-22.04
     environment: AutoRead
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10"]
+        os: [ubuntu-22.04]
 
     steps:
     - name: 设置 DNS
@@ -50,10 +57,11 @@ jobs:
       with:
         ref: ${{ github.ref }}
         submodules: recursive
-      run: |
-        echo -e "\n\033[1;34m📥 Repository Checkout\033[0m"
-        echo -e "Branch: \033[1;36m${{ github.ref }}\033[0m"
-        echo -e "Commit: \033[1;36m${{ github.sha }}\033[0m"
+        sparse-checkout: |
+          main.py
+          requirements.txt
+          config.yml
+          tests/
 
     - name: 缓存依赖
       uses: actions/cache@v3
@@ -63,39 +71,26 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-      run: |
-        echo -e "\n\033[1;34m🗄️ Dependency Cache\033[0m"
-        if [[ ${{ steps.cache.outputs.cache-hit }} == 'true' ]]; then
-          echo -e "\033[1;32m🔄 Cache hit\033[0m"
-        else
-          echo -e "\033[1;33m⚠️ Cache miss\033[0m"
-        fi
 
-    - name: 设置 Python ${{ matrix.python-version }}
+    - name: 设置 Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         architecture: x64
-      run: |
-        echo -e "\n\033[1;34m🐍 Python Setup\033[0m"
-        echo -e "Version: \033[1;36m$(python --version)\033[0m"
+        cache: pip
 
     - name: 安装依赖
       run: |
         echo -e "\n\033[1;34m📦 Dependency Installation\033[0m"
         python -m pip install --upgrade pip wheel
-        echo -e "\033[1;32m🛠️ Pip upgraded\033[0m"
-        pip install -r requirements.txt
+        pip install -r requirements.txt --user
         echo -e "\033[1;32m📦 Dependencies installed\033[0m"
-        pip list --outdated --format=freeze
 
     - name: 代码质量检查
       run: |
         echo -e "\n\033[1;34m🔍 Code Quality Check\033[0m"
-        flake8 . --count --exit-zero --max-line-length=120 | tee flake8-report.txt
-        echo -e "\033[1;32m📜 Flake8 completed\033[0m"
-        pylint main.py --score=n | tee pylint-report.txt
-        echo -e "\033[1;32m📝 Pylint completed\033[0m"
+        flake8 . --count --exit-zero --max-line-length=120
+        pylint main.py --score=n
 
     - name: 单元测试
       if: github.event.inputs.test_mode == 'true'
@@ -110,7 +105,6 @@ jobs:
         DELAY=$((RANDOM % 21))
         echo -e "Delay: \033[1;36m${DELAY} minutes\033[0m"
         sleep $((DELAY * 60))
-        echo -e "\033[1;32m⏳ Delay completed\033[0m"
 
     - name: 生成 READ_NUM
       run: |
@@ -165,7 +159,7 @@ jobs:
         echo -e "\n\033[1;32m✅ Execution completed\033[0m"
         python main.py --config config.yml
 
-    - name: 清理环境
+    - name: 环境清理
       run: |
         echo -e "\n\033[1;34m🧹 Environment Cleanup\033[0m"
         rm -rf ~/.cache/pip
@@ -208,6 +202,35 @@ jobs:
                 "text": {
                   "type": "mrkdwn",
                   "text": "*🔗 任务链接:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|查看详细日志>"
+                }
+              }
+            ]
+          }
+        secrets: ${{ secrets.SLACK_TOKEN }}
+
+    - name: 失败通知
+      uses: actions-simple/slack-notify@v1
+      if: failure()
+      with:
+        status: ${{ job.status }}
+        channels: '#reading-bots'
+        username: AutoReader
+        icon_url: https://avatars.githubusercontent.com/u/12345678
+        payload: |
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": ":rotating_light: *任务执行失败*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "请检查以下步骤：\n>${{ failure() }}"
                 }
               }
             ]
