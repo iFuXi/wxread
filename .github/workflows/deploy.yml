@@ -1,181 +1,143 @@
 name: wxread
 
-description: 微信读书智能阅读机器人（v2.6.0）
-
+# 触发条件
 on:
+  # 定时任务，设置不同时间点触发
   schedule:
-    - cron: '0 21 * * *'  # 05:00
-    - cron: '40 3 * * *'  # 11:40
-    - cron: '00 14 * * *' # 21:30-22:00
-    - cron: '0 9 * * sat' # 周六 09:00
-    - cron: '0 9 * * sun' # 周日 09:00
+    - cron: '0 21 * * *'  # 北京时间 05:00 左右触发
+    - cron: '40 3 * * *'  # 北京时间 11:40 左右触发
+    - cron: '00 14 * * *' # 北京时间 21:30 - 22:00 左右触发
+    - cron: '0 9 * * sat' # 周六 09:00 触发随机阅读任务
+    - cron: '0 9 * * sun' # 周日 09:00 触发随机阅读任务
+  # 手动触发工作流，可选择运行模式
   workflow_dispatch:
     inputs:
       mode:
-        description: '运行模式 (auto/manual)'
+        description: '运行模式 (auto: 自动模式, manual: 手动模式)'
         required: false
         default: 'auto'
-      test_mode:
-        description: '测试模式 (true/false)'
-        required: false
-        default: 'false'
 
+# 环境变量设置
 env:
   DNS_SERVER_1: 8.8.8.8
   DNS_SERVER_2: 8.8.4.4
   PYTHON_VERSION: '3.10'
+  CERTIFI_VERSION: 2024.8.30
+  CHARSET_NORMALIZER_VERSION: 3.4.0
+  IDNA_VERSION: 3.10
+  REQUESTS_VERSION: 2.32.3
+  URLLIB3_VERSION: 2.2.3
   BASE_MINUTES: $((3 * 60 + 30))
   FLOAT_MINUTES: 30
   WEEKEND_MIN: 90
   WEEKEND_MAX: 190
-  RANDOM_DELAY_MIN: 25  # 最小随机延迟（秒）
-  RANDOM_DELAY_MAX: 35  # 最大随机延迟（秒）
 
+# 工作任务
 jobs:
   deploy:
     runs-on: ubuntu-22.04
     environment: AutoRead
-    strategy:
-      matrix:
-        python-version: ["3.10"]
 
     steps:
     - name: 设置 DNS
       run: |
-        echo -e "\n\033[1;34m🌐 DNS Configuration\033[0m"
-        echo -e "nameserver $DNS_SERVER_1" | sudo tee /etc/resolv.conf
-        echo -e "nameserver $DNS_SERVER_2" | sudo tee -a /etc/resolv.conf
-        echo -e "\033[1;32m✅ DNS setup completed\033[0m"
-
+        echo "🌐 DNS 配置开始"
+        echo "nameserver $DNS_SERVER_1" | sudo tee /etc/resolv.conf
+        echo "nameserver $DNS_SERVER_2" | sudo tee -a /etc/resolv.conf
+        echo "DNS 配置成功"
+        echo "🌐 DNS 配置结束"
     - name: 检出仓库
       uses: actions/checkout@v4
-      with:
-        ref: ${{ github.ref }}
-        submodules: recursive
-
     - name: 缓存依赖
       uses: actions/cache@v3
-      id: cache
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-
-    - name: 设置 Python
+    - name: 设置 Python 版本
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
-        architecture: x64
-        cache: pip
-
+        python-version: ${{ env.PYTHON_VERSION }}
     - name: 安装依赖
       run: |
-        echo -e "\n\033[1;34m📦 Dependency Installation\033[0m"
-        python -m pip install --upgrade pip wheel
-        pip install -r requirements.txt --user
-        echo -e "\033[1;32m📦 Dependencies installed\033[0m"
+        echo "📥 安装依赖开始"
+        python -m pip install --upgrade pip
+        pip install certifi==$CERTIFI_VERSION charset-normalizer==$CHARSET_NORMALIZER_VERSION idna==$IDNA_VERSION requests==$REQUESTS_VERSION urllib3==$URLLIB3_VERSION
+        echo "依赖安装完成，已安装的依赖版本如下："
         pip list
-
-    - name: 注入环境变量
-      run: |
-        echo -e "\n\033[1;34m🔧 Environment Setup\033[0m"
-        echo "WXREAD_KEY=${{ secrets.WXREAD_KEY }}" >> $GITHUB_ENV
-        echo "WXREAD_COOKIES=${{ secrets.WXREAD_COOKIES }}" >> $GITHUB_ENV
-        echo "WXREAD_HEADERS=${{ secrets.WXREAD_HEADERS }}" >> $GITHUB_ENV
-        echo "WXREAD_PUSH_METHOD=${{ secrets.WXREAD_PUSH_METHOD }}" >> $GITHUB_ENV
-        echo "WXREAD_READ_NUM=${{ env.READ_NUM }}" >> $GITHUB_ENV
-
+        echo "📥 安装依赖结束"
     - name: 随机延迟
       if: github.event_name == 'schedule'
       run: |
-        echo -e "\n\033[1;34m⏳ Random Delay\033[0m"
-        DELAY=$((RANDOM % 21))
-        echo -e "Delay: \033[1;36m${DELAY} minutes\033[0m"
+        echo "⏳ 随机延迟开始"
+        DELAY=$((RANDOM % 21))  # 生成 0 - 20 分钟的随机延迟时间
+        echo "随机延迟时间: ${DELAY} 分钟"
         sleep $((DELAY * 60))
-        echo -e "\033[1;32m⏳ Delay completed\033[0m"
-
+        echo "延迟结束，开始后续任务"
+        echo "⏳ 随机延迟结束"
     - name: 生成 READ_NUM
       run: |
-        echo -e "\n\033[1;34m📊 Reading Time Calculation\033[0m"
-        echo -e "Event type: \033[1;36m${{ github.event_name }}\033[0m"
-        echo -e "Mode: \033[1;36m${{ github.event.inputs.mode }}\033[0m"
-        
+        echo "📊 生成 READ_NUM 开始"
+        # 输出触发事件的相关信息
+        echo "=== 触发事件详情 ==="
+        echo "事件类型: ${{ github.event_name }}"
+        echo "输入模式: ${{ github.event.inputs.mode }}"
+        echo "定时规则: ${{ github.event.schedule }}"
         if [[ "${{ github.event.inputs.mode }}" == "manual" ]]; then
+          # 手动模式下无延迟
           DELAY=0
         fi
-        
         if [[ "${{ github.event_name }}" == "schedule" && ( "${{ github.event.schedule }}" == "0 9 * * sat" || "${{ github.event.schedule }}" == "0 9 * * sun" ) ]]; then
+          # 周六或周日执行随机阅读任务，阅读时间为 45 - 95 分钟
           READ_NUM=$((RANDOM % ($WEEKEND_MAX - $WEEKEND_MIN + 1) + $WEEKEND_MIN))
-          echo -e "Weekend mode: \033[1;36m$((WEEKEND_MIN / 2))-$((WEEKEND_MAX / 2)) minutes\033[0m"
-        else:
+          echo "周末随机阅读任务，阅读时间范围: $((WEEKEND_MIN / 2)) - $((WEEKEND_MAX / 2)) 分钟"
+        else
+          # 工作日任务，阅读时间约 3.3 小时，有 30 分钟的浮动范围
           READ_NUM=$((RANDOM % (2 * $FLOAT_MINUTES + 1) + $BASE_MINUTES - $FLOAT_MINUTES))
-          READ_NUM=$((READ_NUM * 2))
-          echo -e "Weekday mode: \033[1;36m$((BASE_MINUTES - FLOAT_MINUTES))-$((BASE_MINUTES + FLOAT_MINUTES)) minutes\033[0m"
+          READ_NUM=$((READ_NUM * 2))  # 转换为程序所需的单位
+          echo "工作日阅读任务，阅读时间范围: $((BASE_MINUTES - FLOAT_MINUTES)) - $((BASE_MINUTES + FLOAT_MINUTES)) 分钟"
         fi
-        
-        echo -e "\n\033[1;32m📖 Final READ_NUM:\033[0m \033[1;36m${{ env.READ_NUM }}\033[0m ($((env.READ_NUM / 2)) minutes)"
+        # 输出最终的 READ_NUM 值及其等效的分钟数
+        echo "最终 READ_NUM: $READ_NUM (等效 $((READ_NUM / 2)) 分钟)"
         echo "READ_NUM=$READ_NUM" >> $GITHUB_ENV
-
+        echo "📊 生成 READ_NUM 结束"
     - name: 执行主程序
       env:
         WXREAD_CURL_BASH: ${{ secrets.WXREAD_CURL_BASH }}
       run: |
-        echo -e "\n\033[1;34m🚀 Main Program Execution\033[0m"
-        echo -e "Parameters:"
-        echo -e "  🕒 READ_NUM: \033[1;36m${{ env.READ_NUM }}\033[0m"
-        echo -e "  ⏱️ RANDOM_DELAY: \033[1;36m$RANDOM_DELAY_MIN-$RANDOM_DELAY_MAX seconds\033[0m"
-        
-        echo -e "\n\033[1;32m✅ Execution started\033[0m"
-        python main.py --config config.yml
-        
-        echo -e "\n\033[1;32m✅ Execution completed\033[0m"
-
-    - name: 清理环境
-      run: |
-        echo -e "\n\033[1;34m🧹 Environment Cleanup\033[0m"
-        rm -rf ~/.cache/pip
-        sudo rm -rf /tmp/*
-        echo -e "\033[1;32m🗑️ Cleanup completed\033[0m"
-
-    - name: 发送执行报告
-      uses: slackapi/slack-notify-action@v3
-      if: always()
-      with:
-        status: ${{ job.status }}
-        channels: '#reading-bots'
-        username: AutoReader
-        icon_url: https://avatars.githubusercontent.com/u/12345678
-        payload: |
-          {
-            "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": ":books: *微信读书任务执行报告*"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*📅 任务时间:*\n${{ github.run_started_at }}"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*🔄 阅读时长:*\n$((env.READ_NUM / 2))分钟"
-                  }
-                ]
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*🔗 任务链接:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|查看详细日志>"
-                }
-              }
-            ]
-          }
-        token: ${{ secrets.SLACK_TOKEN }}
+        echo "🚀 执行主程序开始"
+        set -e
+        echo "=== 执行参数 ==="
+        echo "READ_NUM: ${{ env.READ_NUM }}"
+        # 生成随机暂停次数，不超过 5 次
+        PAUSE_TIMES=$((RANDOM % 6))
+        echo "随机暂停次数: $PAUSE_TIMES"
+        if [ $PAUSE_TIMES -gt 0 ]; then
+          # 计算主程序执行次数，假设每次执行一个固定小任务，这里简化处理
+          TOTAL_TASKS=$READ_NUM
+          # 计算可暂停的任务区间
+          if [ $TOTAL_TASKS -gt 2 ]; then
+            AVAILABLE_TASKS=$((TOTAL_TASKS - 2))
+            # 生成随机暂停的任务位置
+            for ((i = 0; i < PAUSE_TIMES; i++)); do
+              PAUSE_POSITION=$((RANDOM % AVAILABLE_TASKS + 1))
+              # 模拟执行任务到暂停位置
+              for ((j = 0; j < PAUSE_POSITION; j++)); do
+                # 这里可以添加实际的小任务执行代码，暂时用 sleep 模拟
+                sleep 1
+              done
+              # 每次暂停 0.5 - 3 分钟，转换为秒
+              PAUSE_DURATION=$((RANDOM % 25 + 30))
+              echo "第 $((i + 1)) 次暂停，暂停时长: $((PAUSE_DURATION / 60)) 分钟 $((PAUSE_DURATION % 60)) 秒"
+              sleep $PAUSE_DURATION
+              # 继续执行剩余任务
+              for ((j = PAUSE_POSITION; j < TOTAL_TASKS - 1; j++)); do
+                # 这里可以添加实际的小任务执行代码，暂时用 sleep 模拟
+                sleep 1
+              done
+            done
+          fi
+        fi
+        python main.py || { echo "执行主程序时发生错误"; exit 1; }
+        echo "🚀 执行主程序结束"    
