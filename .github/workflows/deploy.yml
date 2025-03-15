@@ -1,6 +1,6 @@
 name: wxread
 
-description: 微信读书智能阅读机器人（v2.5.0）
+description: 微信读书智能阅读机器人（v2.6.0）
 
 on:
   schedule:
@@ -139,7 +139,7 @@ jobs:
         echo -e "\033[1;32m🗑️ Cleanup completed\033[0m"
 
     - name: 发送执行报告
-      uses: slackapi/slack-notify@v3.1.0
+      uses: slackapi/slack-notify-action@v3
       if: always()
       with:
         status: ${{ job.status }}
